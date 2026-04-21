@@ -11,18 +11,32 @@ export default function CustomerForm({ onCustomerCreated }: CustomerFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    if (!name.trim() || !email.trim()) return;
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      setFeedback({
+        tone: "error",
+        message: "Enter both a customer name and email address.",
+      });
+      return;
+    }
 
     setLoading(true);
+    setFeedback(null);
 
     const { error } = await supabase.from("customers").insert([
       {
-        name,
-        email,
+        name: trimmedName,
+        email: trimmedEmail,
       },
     ]);
 
@@ -31,7 +45,16 @@ export default function CustomerForm({ onCustomerCreated }: CustomerFormProps) {
     if (!error) {
       setName("");
       setEmail("");
+      setFeedback({
+        tone: "success",
+        message: `${trimmedName} is ready for invoicing.`,
+      });
       onCustomerCreated();
+    } else {
+      setFeedback({
+        tone: "error",
+        message: "Customer could not be created. Check your Supabase setup.",
+      });
     }
 
     setLoading(false);
@@ -40,39 +63,76 @@ export default function CustomerForm({ onCustomerCreated }: CustomerFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 space-y-4"
+      className="dashboard-card p-6 sm:p-7"
     >
-      <h2 className="text-xl font-semibold">Create Customer</h2>
+      <div className="space-y-3">
+        <p className="section-kicker">Customer profile</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              Create customer
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Add the contact information you need before creating invoices.
+            </p>
+          </div>
 
-      <div>
-        <label className="block mb-2 text-sm">Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter customer name"
-          className="w-full px-4 py-2 rounded bg-zinc-800 border border-zinc-700 text-white outline-none"
-        />
+          <span className="ui-status ui-status-warning">Step 1</span>
+        </div>
       </div>
 
-      <div>
-        <label className="block mb-2 text-sm">Email</label>
+      <div className="mt-6 space-y-4">
+        <div>
+          <label className="field-label">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Acme Health Group"
+            className="ui-input"
+          />
+        </div>
+
+        <div>
+          <label className="field-label">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="billing@acmehealth.com"
+            className="ui-input"
+          />
+        </div>
+
+        <div className="list-card p-4">
+          <p className="text-sm font-semibold text-slate-950">
+            Keep contact details consistent
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            This list becomes the source for invoice assignment, so clear names
+            and dedicated billing emails make the rest of the workflow easier.
+          </p>
+        </div>
+
+        {feedback && (
+          <p
+            className={`ui-status ${
+              feedback.tone === "success"
+                ? "ui-status-success"
+                : "ui-status-danger"
+            }`}
+          >
+            {feedback.message}
+          </p>
+        )}
+
         <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Enter customer email"
-          className="w-full px-4 py-2 rounded bg-zinc-800 border border-zinc-700 text-white outline-none"
+          type="submit"
+          disabled={loading}
+          value={loading ? "Creating customer..." : "Save customer"}
+          className="ui-button w-full"
         />
       </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="bg-white text-black px-4 py-2 rounded font-medium disabled:opacity-50"
-      >
-        {loading ? "Creating..." : "Create Customer"}
-      </button>
     </form>
   );
 }

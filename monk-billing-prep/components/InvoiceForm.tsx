@@ -16,18 +16,39 @@ export default function InvoiceForm({
   const [customerId, setCustomerId] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    if (!customerId || !amount) return;
+    const invoiceAmount = Number(amount);
+
+    if (!customerId || !amount) {
+      setFeedback({
+        tone: "error",
+        message: "Choose a customer and enter an amount before continuing.",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(invoiceAmount) || invoiceAmount <= 0) {
+      setFeedback({
+        tone: "error",
+        message: "Invoice amount must be greater than zero.",
+      });
+      return;
+    }
 
     setLoading(true);
+    setFeedback(null);
 
     const { error } = await supabase.from("invoices").insert([
       {
         customer_id: customerId,
-        amount: Number(amount),
+        amount: invoiceAmount,
         status: "pending",
       },
     ]);
@@ -37,7 +58,16 @@ export default function InvoiceForm({
     if (!error) {
       setCustomerId("");
       setAmount("");
+      setFeedback({
+        tone: "success",
+        message: "Invoice created and marked as pending.",
+      });
       onInvoiceCreated();
+    } else {
+      setFeedback({
+        tone: "error",
+        message: "Invoice could not be created. Check your Supabase setup.",
+      });
     }
 
     setLoading(false);
@@ -46,45 +76,86 @@ export default function InvoiceForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 space-y-4"
+      className="dashboard-card p-6 sm:p-7"
     >
-      <h2 className="text-xl font-semibold">Create Invoice</h2>
+      <div className="space-y-3">
+        <p className="section-kicker">Invoice draft</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              Create invoice
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Link the invoice to an existing customer and the app will track it
+              as pending until payment is confirmed.
+            </p>
+          </div>
 
-      <div>
-        <label className="block mb-2 text-sm">Customer</label>
-        <select
-          value={customerId}
-          onChange={(e) => setCustomerId(e.target.value)}
-          className="w-full px-4 py-2 rounded bg-zinc-800 border border-zinc-700 text-white outline-none"
-        >
-          <option value="">Select a customer</option>
-          {customers.map((customer) => (
-            <option key={customer.id} value={customer.id}>
-              {customer.name} ({customer.email})
-            </option>
-          ))}
-        </select>
+          <span className="ui-status ui-status-success">Step 2</span>
+        </div>
       </div>
 
-      <div>
-        <label className="block mb-2 text-sm">Amount</label>
+      <div className="mt-6 space-y-4">
+        <div>
+          <label className="field-label">Customer</label>
+          <select
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+            className="ui-input"
+          >
+            <option value="">Select a customer</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name} ({customer.email})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="field-label">Amount</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="1250.00"
+            className="ui-input"
+          />
+        </div>
+
+        <div className="list-card p-4">
+          <p className="text-sm font-semibold text-slate-950">
+            Invoice status starts as pending
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Once payment is received, use the invoice list to mark it as paid.
+            {customers.length === 0
+              ? " Add a customer first to enable invoice creation."
+              : ""}
+          </p>
+        </div>
+
+        {feedback && (
+          <p
+            className={`ui-status ${
+              feedback.tone === "success"
+                ? "ui-status-success"
+                : "ui-status-danger"
+            }`}
+          >
+            {feedback.message}
+          </p>
+        )}
+
         <input
-          type="number"
-          step="0.01"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="Enter invoice amount"
-          className="w-full px-4 py-2 rounded bg-zinc-800 border border-zinc-700 text-white outline-none"
+          type="submit"
+          disabled={loading || customers.length === 0}
+          value={loading ? "Creating invoice..." : "Save invoice"}
+          className="ui-button w-full"
         />
       </div>
-
-      <button
-        type="submit"
-        disabled={loading || customers.length === 0}
-        className="bg-white text-black px-4 py-2 rounded font-medium disabled:opacity-50"
-      >
-        {loading ? "Creating..." : "Create Invoice"}
-      </button>
     </form>
   );
 }
